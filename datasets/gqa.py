@@ -42,6 +42,7 @@ class GQAQuestionAnswering(torchvision.datasets.CocoDetection):
             img, target = self._transforms(img, target)
         target["dataset_name"] = dataset_name
         target["questionId"] = questionId
+        target['file_name'] = coco_img['file_name']
 
         if coco_img["answer"] not in self.answer2id:
             answer = "unknown"
@@ -96,6 +97,9 @@ class GQAQuestionAnswering(torchvision.datasets.CocoDetection):
             dtype=torch.long,
         )
         return img, target
+
+    def __len__(self):
+        return 1024
 
 
 def build(image_set, args):

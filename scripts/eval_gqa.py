@@ -9,6 +9,7 @@ from copy import deepcopy
 from functools import partial
 from pathlib import Path
 from typing import Dict, List
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -168,11 +169,19 @@ class GQAEvaluator:
             merged_predictions += p
         self.predictions = merged_predictions
 
-    def dump_result(self, path):
+    def format_predictions(self):
+        # Group predictions by the filename
+        file_predictions = defaultdict(list)
+        for line in self.predictions:
+            result = f"{line['caption']} {line['prediction']} (GT:{line['ground_truth']})"
+            file_predictions[line['file_name']].append(result)
+        return file_predictions
 
+    def dump_result(self, path):
         if dist.is_main_process():
             with open(path, "w") as f:
-                json.dump(self.predictions, f, indent=4, sort_keys=True)
+                formatted_predictions = self.format_predictions()
+                json.dump(formatted_predictions, f, indent=4, sort_keys=True)
 
 
 @torch.no_grad()
@@ -225,7 +234,12 @@ def evaluate(
                 else:
                     assert False, "must be one of the answer types"
 
-        res = [{"questionId": target["questionId"], "prediction": answer} for target, answer in zip(targets, answers)]
+        res = [{"questionId": target["questionId"], 
+                "prediction": answer, 
+                'file_name': target['file_name'], 
+                'caption': target['caption'], 
+                'ground_truth': id2answer[target['answer'].item()]} 
+                for target, answer in zip(targets, answers)]
         gqa_evaluator.update(res)
 
     gqa_evaluator.synchronize_between_processes()
